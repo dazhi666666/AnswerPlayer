@@ -1,0 +1,840 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>面试实时助手</title>
+<style>
+
+:root { color-scheme: light; --blue: #2563eb; --text: #18253c; --muted: #64748b; --line: #e3e9f2; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 100%; height: 100%; }
+body { overflow: hidden; font: 13px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif; background: #f3f6fb; color: var(--text); }
+button { font: inherit; cursor: pointer; -webkit-app-region: no-drag; }
+button:focus-visible, [tabindex]:focus-visible { outline: 3px solid #93b4ff; outline-offset: -3px; }
+svg { width: 20px; height: 20px; flex-shrink: 0; }
+#app { display: flex; flex-direction: column; width: 100%; height: 100%; border: 1px solid var(--line); background: #f5f7fc; }
+#chatHeader { display: flex; align-items: center; gap: 10px; flex-shrink: 0; padding: 13px 16px 11px; background: #fff; -webkit-app-region: drag; }
+.brand-mark { width: 34px; height: 34px; border-radius: 10px; background: var(--blue); color: white; display: grid; place-items: center; }
+.header-copy { flex: 1; min-width: 0; }
+h1 { font-size: 14px; font-weight: 700; line-height: 1.4; }
+.header-caption { font-size: 10px; color: var(--muted); margin-top: 2px; }
+#closeBtn { border: 1px solid var(--line); border-radius: 8px; padding: 5px 9px; color: #52627a; background: white; font-size: 11px; white-space: nowrap; }
+#closeBtn:hover { background: #fff1f0; color: #b42318; border-color: #ffd6d0; }
+.status-bar { display: flex; align-items: flex-start; gap: 10px; padding: 0 16px 11px; background: white; border-bottom: 1px solid var(--line); flex-shrink: 0; }
+#asrStatus { display: flex; align-items: baseline; gap: 6px; min-width: 0; flex: 1; color: var(--muted); font-size: 11px; max-height: 66px; overflow-y: auto; overflow-wrap: anywhere; }
+#asrStatus::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: #94a3b8; flex-shrink: 0; }
+#asrStatus[data-state="ready"], #asrStatus[data-state="listening"] { color: #18734a; }
+#asrStatus[data-state="ready"]::before, #asrStatus[data-state="listening"]::before { background: #22a06b; }
+#asrStatus[data-state="error"] { color: #b42318; }
+#asrStatus[data-state="error"]::before { background: #dc5b4b; }
+#asrStatus[data-state="connecting"]::before { background: #d69a20; }
+#aiStatus { flex-shrink: 0; color: #64748b; font-size: 10px; border-radius: 12px; padding: 1px 7px; background: #f1f5f9; }
+#aiStatus.busy { color: #1d4ed8; background: #edf3ff; }
+.conversation { flex: 1; min-height: 0; position: relative; display: flex; }
+#chatMessages { flex: 1; min-width: 0; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; padding: 16px 16px 52px; scrollbar-gutter: stable; overflow-anchor: none; }
+#emptyState { margin: auto; padding: 20px 12px; text-align: center; max-width: 290px; color: var(--muted); }
+#emptyState .empty-icon { display: grid; place-items: center; width: 50px; height: 50px; margin: 0 auto 14px; border-radius: 16px; background: #eaf1ff; color: var(--blue); }
+#emptyState h2 { font-size: 15px; color: #334155; font-weight: 600; margin-bottom: 7px; }
+#emptyState p { font-size: 12px; line-height: 1.9; }
+#chatMessages:has(.bubble) #emptyState { display: none; }
+.bubble { flex-shrink: 0; min-width: 0; max-width: 94%; padding: 11px 13px; border: 1px solid #e5eaf2; border-radius: 12px; font-size: 13px; line-height: 1.8; overflow-wrap: anywhere; background: white; }
+.bubble.interviewer { align-self: flex-start; border-top-left-radius: 3px; }
+.bubble.user { align-self: flex-end; background: #edf3ff; border-color: #dfe8fb; border-top-right-radius: 3px; color: #24468c; }
+.bubble.assistant { align-self: stretch; max-width: 100%; background: #fff; border-color: #d5e2fa; border-left: 3px solid var(--blue); box-shadow: 0 3px 10px #25385804; }
+.bubble-label { display: flex; align-items: center; gap: 7px; margin-bottom: 5px; font-size: 10px; font-weight: 600; color: var(--muted); }
+.user .bubble-label { color: #4768a4; }
+.assistant .bubble-label { color: var(--blue); }
+.interim .bubble-label::after { content: '正在识别'; font-size: 10px; font-weight: 400; color: var(--muted); }
+.interim .bubble-content { color: #6b7c93; }
+.bubble-content { min-width: 0; white-space: pre-wrap; }
+.assistant .bubble-content { white-space: normal; }
+.streaming .bubble-label::after { content: '生成中'; margin-left: auto; font-weight: 400; }
+.streaming .bubble-content::after { content: '▌'; color: var(--blue); animation: blink .8s step-end infinite; }
+#latestBtn { position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%); padding: 6px 13px; display: flex; gap: 6px; align-items: center; border: 1px solid #d5e2fa; border-radius: 20px; background: white; color: var(--blue); box-shadow: 0 3px 12px #25385812; font-size: 11px; white-space: nowrap; }
+#latestBtn svg { width: 14px; height: 14px; }
+#latestBtn[hidden] { display: none; }
+#latestBtn:hover { background: #edf3ff; }
+#footerTip { flex-shrink: 0; display: flex; justify-content: space-between; gap: 8px; padding: 10px 16px; border-top: 1px solid var(--line); background: white; color: var(--muted); font-size: 10px; }
+kbd { font: inherit; display: inline-block; min-width: 19px; padding: 0 4px; border: 1px solid #dce3ed; border-radius: 4px; text-align: center; color: #53657d; background: #f8fafc; }
+@keyframes blink { 50% { opacity: 0; } }
+.markdown-doc {
+  display: block;
+}
+.markdown-doc > :first-child { margin-top: 0; }
+.markdown-doc > :last-child { margin-bottom: 0; }
+.markdown-doc :where(p, ul, ol, blockquote, pre, table, h1, h2, h3, h4, hr) {
+  margin: 0.45em 0;
+}
+.markdown-doc ul, .markdown-doc ol { padding-left: 1.5em; }
+.markdown-doc li { margin: 0.18em 0; }
+.markdown-doc pre {
+  background: rgba(15,23,42,0.08); border-radius: 6px; padding: 10px 12px;
+  overflow-x: auto;
+}
+.markdown-doc code {
+  font-family: 'Consolas','Courier New',monospace; font-size: 0.9em;
+}
+.markdown-doc :not(pre) > code {
+  background: rgba(15,23,42,0.08); padding: 1px 5px; border-radius: 4px;
+}
+.markdown-doc pre code { background: none; padding: 0; }
+.markdown-doc blockquote {
+  border-left: 3px solid rgba(22,101,52,0.25); padding-left: 10px;
+  color: inherit; opacity: 0.88;
+}
+.markdown-doc table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.45em 0;
+  font-size: 0.92em;
+}
+.markdown-doc th, .markdown-doc td {
+  border: 1px solid rgba(15,23,42,0.12); padding: 6px 8px; text-align: left;
+}
+.markdown-doc th { background: rgba(255,255,255,0.35); }
+.markdown-doc a { color: inherit; text-decoration: underline; }
+.markdown-doc hr {
+  border: 0;
+  border-top: 1px solid rgba(15,23,42,0.12);
+}
+.markdown-doc h1, .markdown-doc h2, .markdown-doc h3, .markdown-doc h4 {
+  line-height: 1.35;
+  font-weight: 700;
+}
+.markdown-doc h1 { font-size: 1.2em; }
+.markdown-doc h2 { font-size: 1.1em; }
+.markdown-doc h3 { font-size: 1.04em; }
+
+.markdown-doc pre { background: #f3f6fb; max-width: 100%; font-size: 12px; }
+.markdown-doc table { display: block; overflow-x: auto; max-width: 100%; }
+.markdown-doc blockquote { border-color: #b7cdfb; color: #52627a; }
+.markdown-doc h1, .markdown-doc h2, .markdown-doc h3 { color: var(--text); }
+@media (max-width: 350px) { #chatHeader { padding: 10px; gap: 7px; } .status-bar { padding: 0 10px 9px; gap: 5px; } #chatMessages { padding: 12px 10px 48px; } #footerTip { padding: 8px 10px; flex-wrap: wrap; } }
+@media (prefers-reduced-motion: reduce) { *, *::after { animation: none !important; } }
+</style>
+</head>
+<body>
+<div id="app">
+  <header id="chatHeader">
+    <div class="brand-mark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3 2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5Z"/></svg></div>
+    <div class="header-copy"><h1>面试实时助手</h1><p class="header-caption">实时转写 · AI 回答建议</p></div>
+    <button id="closeBtn" aria-label="结束面试，返回准备首页" title="结束面试（Esc）">结束面试</button>
+  </header>
+  <div class="status-bar"><span id="asrStatus" role="status" data-state="idle">正在准备音频…</span><span id="aiStatus" role="status">AI 待命</span></div>
+  <main class="conversation" aria-label="面试对话">
+    <div id="chatMessages" role="region" aria-label="实时转写和 AI 建议" tabindex="0">
+      <div id="emptyState"><div class="empty-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3 2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5Z"/></svg></div><h2>专注交流，思路在这里</h2><p>语音转写将实时显示在这里。<br>面试官提问后，AI 会自动整理回答建议。</p></div>
+    </div>
+    <button id="latestBtn" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v16m-6-6 6 6 6-6"/></svg>回到最新消息</button>
+  </main>
+  <footer id="footerTip"><span><kbd>←</kbd> <kbd>→</kbd> 切换提词</span><span><kbd>Esc</kbd> 结束面试</span></footer>
+</div>
+<script>
+function ipcSend(channel, data) {
+  window.postMessage({ t: 'ipc-send', c: channel, d: data }, '*');
+}
+
+const ipcOn = {};
+let persona = '';
+let preChatHistory = [];
+let scriptText = '';
+let messages = [];
+let interimEls = new Map();
+let aiBubble = null;
+let aiFullText = '';
+let isLlmActive = false;
+let silenceTimer = null;
+let pendingLlmTrigger = false;
+let audioCtx = null;
+let workletNodes = [];
+let processingNodes = [];
+let displayStream = null;
+let micStream = null;
+let sourceStatuses = new Map();
+let recognitionState = 'idle';
+let recognitionStatusTimer = null;
+let shouldAutoScroll = true;
+let denoiseMode = 'standard';
+
+const chatEl = document.getElementById('chatMessages');
+const statusEl = document.getElementById('asrStatus');
+const latestBtn = document.getElementById('latestBtn');
+const aiStatusEl = document.getElementById('aiStatus');
+let captureError = '';
+
+function setStatus(text, state = 'idle') {
+  if (statusEl.textContent !== text) statusEl.textContent = text;
+  statusEl.dataset.state = state;
+}
+
+function renderAiStatus() {
+  aiStatusEl.textContent = isLlmActive ? 'AI 正在生成' : 'AI 待命';
+  aiStatusEl.classList.toggle('busy', isLlmActive);
+}
+
+function setBubbleContent(el, text, role) {
+  const content = el.querySelector('.bubble-content');
+  if (role === 'assistant') content.innerHTML = renderAssistantMarkdown(text);
+  else content.textContent = text;
+}
+
+function isNearBottom() {
+  const threshold = 32;
+  return chatEl.scrollHeight - chatEl.scrollTop - chatEl.clientHeight <= threshold;
+}
+
+function autoScroll() {
+  latestBtn.hidden = shouldAutoScroll;
+  if (!shouldAutoScroll) return;
+  requestAnimationFrame(() => {
+    if (shouldAutoScroll) chatEl.scrollTop = chatEl.scrollHeight;
+  });
+}
+
+function setRecognitionState(nextState, timeoutMs = 0) {
+  recognitionState = nextState;
+  if (recognitionStatusTimer) {
+    clearTimeout(recognitionStatusTimer);
+    recognitionStatusTimer = null;
+  }
+  if (timeoutMs > 0) {
+    recognitionStatusTimer = setTimeout(() => {
+      recognitionState = 'idle';
+      recognitionStatusTimer = null;
+      renderStatus();
+    }, timeoutMs);
+  }
+  renderStatus();
+}
+
+function getSourceLabel(source) {
+  return source === 'system' ? '系统音频' : '麦克风';
+}
+
+function getSpeechProcessingProfile(mode, profile = 'mic') {
+  if (mode === 'off') {
+    return {
+      constraints: {
+        noiseSuppression: false,
+        echoCancellation: false,
+        autoGainControl: false
+      },
+      highpass: profile === 'system' ? 50 : 40,
+      lowpass: 7900,
+      threshold: 0,
+      knee: 0,
+      ratio: 1,
+      gain: 1
+    };
+  }
+
+  if (mode === 'strong') {
+    return {
+      constraints: {
+        noiseSuppression: true,
+        echoCancellation: true,
+        autoGainControl: true
+      },
+      highpass: profile === 'system' ? 160 : 140,
+      lowpass: profile === 'system' ? 6400 : 6800,
+      threshold: -34,
+      knee: 20,
+      ratio: profile === 'system' ? 3.4 : 4,
+      gain: profile === 'system' ? 0.9 : 0.96
+    };
+  }
+
+  return {
+    constraints: {
+      noiseSuppression: true,
+      echoCancellation: true,
+      autoGainControl: true
+    },
+    highpass: profile === 'system' ? 120 : 100,
+    lowpass: profile === 'system' ? 7200 : 7800,
+    threshold: -30,
+    knee: 18,
+    ratio: profile === 'system' ? 2.5 : 3,
+    gain: profile === 'system' ? 0.92 : 1
+  };
+}
+
+function createSpeechProcessingChain(context, sourceNode, profile = 'default', mode = 'standard') {
+  const config = getSpeechProcessingProfile(mode, profile);
+  const highpass = context.createBiquadFilter();
+  highpass.type = 'highpass';
+  highpass.frequency.value = config.highpass;
+  highpass.Q.value = 0.7;
+
+  const lowpass = context.createBiquadFilter();
+  lowpass.type = 'lowpass';
+  lowpass.frequency.value = config.lowpass;
+  lowpass.Q.value = 0.7;
+
+  const compressor = context.createDynamicsCompressor();
+  compressor.threshold.value = config.threshold;
+  compressor.knee.value = config.knee;
+  compressor.ratio.value = config.ratio;
+  compressor.attack.value = 0.003;
+  compressor.release.value = 0.2;
+
+  const gain = context.createGain();
+  gain.gain.value = config.gain;
+
+  sourceNode.connect(highpass);
+  highpass.connect(lowpass);
+  lowpass.connect(compressor);
+  compressor.connect(gain);
+
+  processingNodes.push(highpass, lowpass, compressor, gain);
+  return gain;
+}
+
+function renderStatus() {
+  if (captureError) { setStatus(captureError, 'error'); return; }
+  const orderedSources = ['mic', 'system'];
+  const errorEntry = orderedSources
+    .map((source) => ({ source, status: sourceStatuses.get(source) }))
+    .find((entry) => entry.status?.state === 'error');
+
+  if (errorEntry) {
+    const detail = errorEntry.status.detail ? `: ${errorEntry.status.detail}` : '';
+    setStatus(`${getSourceLabel(errorEntry.source)}异常${detail}`, 'error');
+    return;
+  }
+
+  const disconnectedEntry = orderedSources
+    .map((source) => ({ source, status: sourceStatuses.get(source) }))
+    .find((entry) => entry.status?.state === 'disconnected');
+
+  if (disconnectedEntry) {
+    const detail = disconnectedEntry.status.detail ? `: ${disconnectedEntry.status.detail}` : '';
+    setStatus(`${getSourceLabel(disconnectedEntry.source)}已断开${detail}`, 'error');
+    return;
+  }
+
+  if (recognitionState === 'listening') {
+    setStatus('正在识别语音…', 'listening');
+    return;
+  }
+
+  if (recognitionState === 'recognized') {
+    setStatus('已识别', 'ready');
+    return;
+  }
+
+  const micState = sourceStatuses.get('mic')?.state;
+  const systemState = sourceStatuses.get('system')?.state;
+
+  if (micState === 'connecting' || systemState === 'connecting') {
+    setStatus('正在连接语音识别…', 'connecting');
+    return;
+  }
+
+  if (micState === 'connected' && systemState === 'connected') {
+    setStatus('麦克风与系统音频已连接', 'ready');
+    return;
+  }
+
+  if (micState === 'connected') {
+    setStatus('麦克风已连接', 'ready');
+    return;
+  }
+
+  if (systemState === 'connected') {
+    setStatus('系统音频已连接', 'ready');
+    return;
+  }
+
+  if (micState === 'idle' || systemState === 'idle') {
+    setStatus('等待音频…', 'idle');
+    return;
+  }
+
+  setStatus('正在准备音频…', 'idle');
+}
+
+function escapeMarkdownHtml(text) {
+  return String(text || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function renderInlineMarkdown(text) {
+  let html = escapeMarkdownHtml(text);
+  html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+  html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  html = html.replace(/__([^_]+)__/g, '<strong>$1</strong>');
+  html = html.replace(/(^|[^*])\*([^*\n]+)\*(?!\*)/g, '$1<em>$2</em>');
+  html = html.replace(/(^|[^_])_([^_\n]+)_(?!_)/g, '$1<em>$2</em>');
+  return html;
+}
+
+function renderMarkdownBlocks(markdown) {
+  const lines = String(markdown || '').replace(/\r\n?/g, '\n').split('\n');
+  const blocks = [];
+  let i = 0;
+
+  while (i < lines.length) {
+    const line = lines[i];
+    const trimmed = line.trim();
+
+    if (!trimmed) {
+      i += 1;
+      continue;
+    }
+
+    const fence = trimmed.match(/^```([\w-]*)/);
+    if (fence) {
+      const codeLines = [];
+      i += 1;
+      while (i < lines.length && !lines[i].trim().startsWith('```')) {
+        codeLines.push(lines[i]);
+        i += 1;
+      }
+      if (i < lines.length) i += 1;
+      const lang = fence[1] ? ` class="language-${escapeMarkdownHtml(fence[1])}"` : '';
+      blocks.push(`<pre><code${lang}>${escapeMarkdownHtml(codeLines.join('\n'))}</code></pre>`);
+      continue;
+    }
+
+    const heading = trimmed.match(/^(#{1,4})\s+(.+)$/);
+    if (heading) {
+      const level = heading[1].length;
+      blocks.push(`<h${level}>${renderInlineMarkdown(heading[2])}</h${level}>`);
+      i += 1;
+      continue;
+    }
+
+    if (/^>\s?/.test(trimmed)) {
+      const quoteLines = [];
+      while (i < lines.length && /^>\s?/.test(lines[i].trim())) {
+        quoteLines.push(lines[i].trim().replace(/^>\s?/, ''));
+        i += 1;
+      }
+      blocks.push(`<blockquote>${quoteLines.map(renderInlineMarkdown).join('<br>')}</blockquote>`);
+      continue;
+    }
+
+    if (/^[-*+]\s+/.test(trimmed)) {
+      const items = [];
+      while (i < lines.length && /^[-*+]\s+/.test(lines[i].trim())) {
+        items.push(lines[i].trim().replace(/^[-*+]\s+/, ''));
+        i += 1;
+      }
+      blocks.push(`<ul>${items.map((item) => `<li>${renderInlineMarkdown(item)}</li>`).join('')}</ul>`);
+      continue;
+    }
+
+    if (/^\d+\.\s+/.test(trimmed)) {
+      const items = [];
+      while (i < lines.length && /^\d+\.\s+/.test(lines[i].trim())) {
+        items.push(lines[i].trim().replace(/^\d+\.\s+/, ''));
+        i += 1;
+      }
+      blocks.push(`<ol>${items.map((item) => `<li>${renderInlineMarkdown(item)}</li>`).join('')}</ol>`);
+      continue;
+    }
+
+    if (/^---+$/.test(trimmed)) {
+      blocks.push('<hr>');
+      i += 1;
+      continue;
+    }
+
+    const paragraph = [trimmed];
+    i += 1;
+    while (
+      i < lines.length &&
+      lines[i].trim() &&
+      !/^```/.test(lines[i].trim()) &&
+      !/^(#{1,4})\s+/.test(lines[i].trim()) &&
+      !/^>\s?/.test(lines[i].trim()) &&
+      !/^[-*+]\s+/.test(lines[i].trim()) &&
+      !/^\d+\.\s+/.test(lines[i].trim()) &&
+      !/^---+$/.test(lines[i].trim())
+    ) {
+      paragraph.push(lines[i].trim());
+      i += 1;
+    }
+    blocks.push(`<p>${renderInlineMarkdown(paragraph.join(' '))}</p>`);
+  }
+
+  return blocks.join('');
+}
+
+function renderAssistantMarkdown(text) {
+  return `<article class="markdown-doc">${renderMarkdownBlocks(text)}</article>`;
+}
+
+function createBubble(text, role, isInterim) {
+  const el = document.createElement('div');
+  el.className = `bubble ${role}` + (isInterim ? ' interim' : '');
+  const label = document.createElement('div');
+  label.className = 'bubble-label';
+  label.textContent = role === 'assistant' ? 'AI · 回答建议' : role === 'interviewer' ? '面试官' : '我';
+  const content = document.createElement('div');
+  content.className = 'bubble-content';
+  el.append(label, content);
+  setBubbleContent(el, text, role);
+  chatEl.appendChild(el);
+  autoScroll();
+  return el;
+}
+
+function normalizeTranscriptText(text) {
+  return String(text || '')
+    .toLowerCase()
+    .replace(/[\s.,!?;:'"`~\-_=+()[\]{}<>/\\|@#$%^&*，。！？；：“”‘’、]/g, '');
+}
+
+function isSimilarTranscript(a, b) {
+  const normalizedA = normalizeTranscriptText(a);
+  const normalizedB = normalizeTranscriptText(b);
+  if (!normalizedA || !normalizedB) return false;
+  if (normalizedA === normalizedB) return true;
+  if (normalizedA.length < 6 || normalizedB.length < 6) return false;
+  return normalizedA.includes(normalizedB) || normalizedB.includes(normalizedA);
+}
+
+function removeMessageEntry(entry) {
+  if (!entry) return;
+  const index = messages.indexOf(entry);
+  if (index >= 0) {
+    messages.splice(index, 1);
+  }
+  if (entry.el && entry.el.parentNode) {
+    entry.el.remove();
+  }
+}
+
+function resolveDuplicateFinal(result) {
+  const now = Date.now();
+  const candidates = messages
+    .filter((item) => item.type === 'final' && item.role !== 'assistant' && now - (item.timestamp || 0) <= 2500)
+    .reverse();
+
+  for (const candidate of candidates) {
+    if (!isSimilarTranscript(candidate.text, result.text)) continue;
+    if (candidate.source === result.source) {
+      return { action: 'drop' };
+    }
+    if (candidate.source === 'system' && result.source === 'mic') {
+      return { action: 'drop' };
+    }
+    if (candidate.source === 'mic' && result.source === 'system') {
+      return { action: 'replace', target: candidate };
+    }
+  }
+
+  return { action: 'keep' };
+}
+
+function updateInterim(text, role) {
+  const key = role || 'user';
+  const existing = interimEls.get(key);
+  if (existing) {
+    setBubbleContent(existing, text, role);
+    autoScroll();
+    return;
+  }
+  interimEls.set(key, createBubble(text, role, true));
+}
+
+function clearInterim(role) {
+  if (role) {
+    const existing = interimEls.get(role);
+    if (existing) {
+      existing.remove();
+      interimEls.delete(role);
+    }
+    return;
+  }
+  for (const existing of interimEls.values()) {
+    existing.remove();
+  }
+  interimEls.clear();
+}
+
+function finalizeInterim(role) {
+  const interimEl = interimEls.get(role);
+  if (!interimEl) return;
+  interimEl.remove();
+  interimEls.delete(role);
+}
+
+function addFinalBubble(text, role, source) {
+  clearInterim(role);
+  const el = createBubble(text, role, false);
+  messages.push({ text, role, source, type: 'final', timestamp: Date.now(), el });
+  autoScroll();
+}
+
+function startAiBubble() {
+  aiFullText = '';
+  aiBubble = createBubble('', 'assistant', false);
+  aiBubble.classList.add('streaming');
+  isLlmActive = true;
+  renderAiStatus();
+}
+
+function appendAiChunk(chunk) {
+  if (!aiBubble) return;
+  aiFullText += chunk;
+  setBubbleContent(aiBubble, aiFullText, 'assistant');
+  autoScroll();
+}
+
+function endAiBubble() {
+  isLlmActive = false;
+  renderAiStatus();
+  if (aiBubble) {
+    aiBubble.classList.remove('streaming');
+    setBubbleContent(aiBubble, aiFullText, 'assistant');
+    messages.push({ text: aiFullText, role: 'assistant', type: 'final' });
+    aiBubble = null;
+  }
+  autoScroll();
+
+  if (pendingLlmTrigger) {
+    pendingLlmTrigger = false;
+    triggerLlm();
+  }
+}
+
+function abortAiBubble() {
+  isLlmActive = false;
+  renderAiStatus();
+  if (aiBubble) {
+    aiBubble.remove();
+    aiBubble = null;
+  }
+  aiFullText = '';
+  autoScroll();
+}
+
+function resetSilenceTimer() {
+  if (!silenceTimer) return;
+  clearTimeout(silenceTimer);
+  silenceTimer = null;
+}
+
+function triggerLlm() {
+  if (isLlmActive) {
+    pendingLlmTrigger = true;
+    return;
+  }
+
+  const history = [{ role: 'system', content: persona }];
+
+  if (scriptText) {
+    history.push({
+      role: 'user',
+      content: `Candidate script reference:\n${scriptText}`
+    });
+  }
+
+  for (const item of preChatHistory) {
+    history.push({ role: item.role, content: item.content });
+  }
+
+  for (const item of messages) {
+    if (item.type !== 'final') continue;
+    if (item.role === 'interviewer') {
+      history.push({ role: 'user', content: `[Interviewer] ${item.text}`, name: 'interviewer' });
+    } else if (item.role === 'user') {
+      history.push({ role: 'user', content: `[Candidate] ${item.text}`, name: 'candidate' });
+    } else if (item.role === 'assistant') {
+      history.push({ role: 'assistant', content: item.text });
+    }
+  }
+
+  startAiBubble();
+  ipcSend('trigger-llm', history);
+}
+
+function onAsrInterim(result) {
+  resetSilenceTimer();
+  updateInterim(result.text, result.role);
+  setRecognitionState('listening');
+}
+
+function onAsrFinal(result) {
+  finalizeInterim(result.role);
+  const duplicateDecision = resolveDuplicateFinal(result);
+  if (duplicateDecision.action === 'drop') {
+    setRecognitionState('recognized', 2000);
+    return;
+  }
+  if (duplicateDecision.action === 'replace') {
+    removeMessageEntry(duplicateDecision.target);
+  }
+
+  addFinalBubble(result.text, result.role, result.source);
+
+  if (result.role === 'interviewer') {
+    resetSilenceTimer();
+    silenceTimer = setTimeout(() => {
+      if (isLlmActive) {
+        pendingLlmTrigger = true;
+        return;
+      }
+      triggerLlm();
+    }, 1500);
+  } else {
+    resetSilenceTimer();
+  }
+
+  setRecognitionState('recognized', 2000);
+}
+
+function onXunfeiStatus(payload) {
+  if (!payload || !payload.source) return;
+  sourceStatuses.set(payload.source, {
+    state: payload.state || 'idle',
+    detail: payload.detail || ''
+  });
+  renderStatus();
+}
+
+async function startAudioCapture() {
+  try {
+    sourceStatuses.clear();
+    captureError = '';
+    setRecognitionState('idle');
+    displayStream = await navigator.mediaDevices.getDisplayMedia({
+      video: true,
+      audio: true
+    });
+    const micProfile = getSpeechProcessingProfile(denoiseMode, 'mic');
+    micStream = await navigator.mediaDevices.getUserMedia({
+      audio: micProfile.constraints
+    });
+
+    audioCtx = new AudioContext();
+    await audioCtx.audioWorklet.addModule(new URL('audio-worklet.js', location.href).href);
+
+    ipcSend('connect-xunfei', { source: 'mic' });
+    const micSource = audioCtx.createMediaStreamSource(micStream);
+    const micProcessedOutput = createSpeechProcessingChain(audioCtx, micSource, 'mic', denoiseMode);
+    const micWorkletNode = new AudioWorkletNode(audioCtx, 'pcm-resampler');
+    micProcessedOutput.connect(micWorkletNode);
+    micWorkletNode.port.onmessage = (event) => {
+      ipcSend('send-pcm-data', { source: 'mic', buffer: event.data });
+    };
+    workletNodes.push(micWorkletNode);
+
+    const displayAudioTracks = displayStream.getAudioTracks();
+    if (displayAudioTracks.length > 0) {
+      ipcSend('connect-xunfei', { source: 'system' });
+      const systemStream = new MediaStream(displayAudioTracks);
+      const systemSource = audioCtx.createMediaStreamSource(systemStream);
+      const systemProcessedOutput = createSpeechProcessingChain(audioCtx, systemSource, 'system', denoiseMode);
+      const systemWorkletNode = new AudioWorkletNode(audioCtx, 'pcm-resampler');
+      systemProcessedOutput.connect(systemWorkletNode);
+      systemWorkletNode.port.onmessage = (event) => {
+        ipcSend('send-pcm-data', { source: 'system', buffer: event.data });
+      };
+      workletNodes.push(systemWorkletNode);
+    }
+  } catch (err) {
+    console.error('Audio capture error:', err);
+    captureError = err && err.message ? `音频启动失败：${err.message}` : '音频启动失败';
+    renderStatus();
+  }
+}
+
+function cleanupAudio() {
+  resetSilenceTimer();
+  if (recognitionStatusTimer) {
+    clearTimeout(recognitionStatusTimer);
+    recognitionStatusTimer = null;
+  }
+  clearInterim();
+  for (const workletNode of workletNodes) {
+    try { workletNode.disconnect(); } catch (_) {}
+  }
+  workletNodes = [];
+  for (const node of processingNodes) {
+    try { node.disconnect(); } catch (_) {}
+  }
+  processingNodes = [];
+  sourceStatuses.clear();
+  recognitionState = 'idle';
+  ipcSend('close-xunfei', 'mic');
+  ipcSend('close-xunfei', 'system');
+  if (audioCtx) {
+    try { audioCtx.close(); } catch (_) {}
+    audioCtx = null;
+  }
+  if (displayStream) {
+    displayStream.getTracks().forEach((track) => track.stop());
+    displayStream = null;
+  }
+  if (micStream) {
+    micStream.getTracks().forEach((track) => track.stop());
+    micStream = null;
+  }
+}
+
+window.addEventListener('message', (event) => {
+  if (event.source !== window) return;
+  const message = event.data;
+  if (!message || message.t === 'ipc-send') return;
+  const handler = ipcOn[message.t];
+  if (handler) handler(message.d);
+});
+
+chatEl.addEventListener('scroll', () => {
+  shouldAutoScroll = isNearBottom();
+  latestBtn.hidden = shouldAutoScroll;
+});
+
+latestBtn.addEventListener('click', () => {
+  shouldAutoScroll = true;
+  autoScroll();
+  chatEl.focus({ preventScroll: true });
+});
+
+ipcOn['init-interview'] = async (data) => {
+  persona = data.persona || 'You are an interview copilot. Give concise, practical suggestions.';
+  preChatHistory = data.preChatHistory || [];
+  scriptText = data.scriptText || '';
+  denoiseMode = ['off', 'standard', 'strong'].includes(data.denoiseMode) ? data.denoiseMode : 'standard';
+  renderStatus();
+  await startAudioCapture();
+};
+
+ipcOn['asr-interim-result'] = (data) => onAsrInterim(data);
+ipcOn['asr-final-result'] = (data) => onAsrFinal(data);
+ipcOn['xunfei-status'] = (data) => onXunfeiStatus(data);
+ipcOn['llm-chunk'] = (text) => {
+  if (!isLlmActive && !aiBubble) startAiBubble();
+  appendAiChunk(text);
+};
+ipcOn['llm-end'] = () => endAiBubble();
+
+document.getElementById('closeBtn').addEventListener('click', () => {
+  ipcSend('close-prompter');
+});
+
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'ArrowRight') {
+    ipcSend('next-subtitle-line');
+  } else if (event.key === 'ArrowLeft') {
+    ipcSend('prev-subtitle-line');
+  } else if (event.key === 'Escape') {
+    ipcSend('close-prompter');
+  }
+});
+
+window.addEventListener('beforeunload', () => {
+  cleanupAudio();
+});
+</script>
+</body>
+</html>

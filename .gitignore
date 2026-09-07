@@ -1,0 +1,32 @@
+# Dependencies
+node_modules/
+
+# Local configuration and credentials
+.env
+.env.*
+!.env.example
+
+# Logs and generated test output
+*.log
+artifacts/**/verification.json
+artifacts/**/test-errors.log
+artifacts/**/test.log
+
+# Local runtime data
+activation-store.json
+
+# Private server and deployment material (kept locally, never published)
+ACTIVATION_SYSTEM.md
+服务器部署教程-激活码系统.md
+小白搭建教程-激活码系统.md
+server/
+backend/
+
+# Editor and operating-system files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Accidental local launcher file
+/npm

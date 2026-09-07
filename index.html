@@ -1,0 +1,1020 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>面试 AI 辅助提词器</title>
+<style>
+
+:root { color-scheme: light; --bg: #f3f6fb; --surface: #fff; --text: #18253c; --muted: #64748b; --line: #e3e9f2; --blue: #2563eb; --radius: 14px; }
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { width: 100%; height: 100%; }
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif; background: var(--bg); color: var(--text); font-size: 14px; line-height: 1.5; display: flex; flex-direction: column; overflow: hidden; }
+button, input, textarea, select { font: inherit; }
+button, summary, select { cursor: pointer; }
+button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; border: 1px solid transparent; border-radius: 8px; min-height: 38px; padding: 8px 15px; font-weight: 600; transition: background .15s ease, border-color .15s ease; }
+button:disabled { cursor: not-allowed; opacity: .55; }
+button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible, summary:focus-visible { outline: 3px solid #93b4ff; outline-offset: 3px; }
+input, textarea, select { color: var(--text); background: #fff; border: 1px solid #d8e1ee; border-radius: 8px; padding: 9px 11px; min-width: 0; }
+input:focus, textarea:focus, select:focus { border-color: var(--blue); }
+textarea { resize: vertical; line-height: 1.7; }
+::placeholder { color: #8290a4; }
+.icon { width: 20px; height: 20px; flex-shrink: 0; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
+.page-scroll { flex: 1; min-height: 0; overflow-y: auto; scrollbar-gutter: stable; }
+.container { width: 100%; max-width: 1440px; margin: 0 auto; padding: 20px 28px; }
+.page-header { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+.brand-mark { display: grid; place-items: center; width: 44px; height: 44px; background: var(--blue); color: white; border-radius: 12px; box-shadow: 0 4px 12px #2563eb24; }
+.brand-mark .icon { width: 26px; height: 26px; }
+h1 { font-size: 21px; letter-spacing: -.4px; font-weight: 700; }
+.page-header p { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.header-tag { margin-left: auto; color: var(--muted); font-size: 12px; border: 1px solid var(--line); border-radius: 20px; padding: 5px 12px; }
+.license-section { padding: 12px 16px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); margin-bottom: 16px; }
+.license-main { display: flex; align-items: center; gap: 18px; }
+.license-top { display: flex; align-items: center; gap: 16px; flex: 1; min-width: 0; }
+.license-title { font-size: 13px; font-weight: 600; }
+.license-status { color: var(--muted); font-size: 12px; margin-top: 3px; overflow-wrap: anywhere; }
+.license-countdown { flex-shrink: 0; color: var(--blue); background: #eff5ff; border-radius: 8px; padding: 7px 11px; font: 600 20px/1.4 Consolas, monospace; font-variant-numeric: tabular-nums; }
+.license-countdown.inactive { color: #718096; background: #f1f5f9; }
+.license-redeem-row { display: flex; align-items: center; gap: 8px; width: 310px; }
+#activationCodeInput { width: 100%; font-size: 12px; }
+.license-btn, #preChatSend, #startBtn { background: var(--blue); color: white; white-space: nowrap; }
+.license-btn:hover:not(:disabled), #preChatSend:hover:not(:disabled), #startBtn:hover:not(:disabled) { background: #1d4ed8; }
+.license-btn.secondary { background: #eef3fb; color: #334155; }
+.license-btn.secondary:hover:not(:disabled) { background: #e2eaf6; }
+.license-message { font-size: 12px; color: var(--muted); overflow-wrap: anywhere; }
+.license-message:not(:empty) { margin-top: 8px; }
+.license-message.error { color: #b42318; }
+.license-message.success { color: #18734a; }
+.admin-panel { border-top: 1px solid #eef2f7; margin-top: 10px; padding-top: 8px; }
+.admin-panel summary { font-size: 12px; color: var(--muted); width: fit-content; }
+.admin-grid { display: grid; grid-template-columns: 1.1fr 1.1fr .6fr 1.2fr auto; gap: 10px; align-items: end; margin-top: 12px; }
+.admin-field { min-width: 0; }
+.admin-field label { display: block; margin-bottom: 5px; font-size: 12px; color: var(--muted); }
+.admin-field input, .admin-field select { width: 100%; font-size: 12px; }
+#generatedCodes { width: 100%; min-height: 76px; margin-top: 12px; font: 12px/1.6 Consolas, monospace; }
+.tiny-link-btn { min-height: 30px; padding: 4px 0; background: none; color: var(--blue); font-size: 12px; }
+.code-list { max-height: 180px; overflow: auto; border: 1px solid var(--line); border-radius: 8px; margin-top: 6px; }
+.code-list table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.code-list th, .code-list td { padding: 8px 10px; text-align: left; white-space: nowrap; border-bottom: 1px solid var(--line); }
+.code-list th { position: sticky; top: 0; background: #f8fafc; color: var(--muted); }
+.workspace { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 20px; align-items: stretch; }
+.chat-section, .script-section, .mic-test-section { min-width: 0; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: 0 3px 12px #25385803; }
+.chat-section { display: flex; flex-direction: column; height: clamp(440px, calc(100vh - 330px), 820px); }
+.card-header { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.card-heading { display: flex; align-items: center; gap: 8px; }
+.card-heading .icon { color: var(--blue); width: 18px; height: 18px; }
+h2 { font-size: 14px; font-weight: 650; }
+.card-description { color: var(--muted); font-size: 12px; margin-top: 6px; }
+.chat-header { padding: 17px 18px 14px; border-bottom: 1px solid var(--line); }
+.chat-state { font-size: 11px; color: #18734a; background: #edf8f2; padding: 3px 8px; border-radius: 20px; white-space: nowrap; }
+.chat-state.busy { color: #1d4ed8; background: #eff5ff; }
+.chat-messages { flex: 1; min-height: 0; overflow-y: auto; padding: 18px; display: flex; flex-direction: column; gap: 16px; }
+.chat-bubble { flex-shrink: 0; max-width: 94%; min-width: 0; padding: 12px 14px; border-radius: 12px; font-size: 13px; line-height: 1.8; overflow-wrap: anywhere; animation: fadeIn .15s ease; }
+.chat-bubble.ai { align-self: flex-start; background: #f4f7fc; color: #334155; border-top-left-radius: 3px; }
+.chat-bubble.ai::before { content: "面试助手"; display: block; color: var(--blue); font-size: 11px; font-weight: 600; margin-bottom: 4px; }
+.chat-bubble.user { align-self: flex-end; background: #edf3ff; color: #24468c; border-top-right-radius: 3px; }
+.chat-bubble.streaming::after { content: '▌'; color: var(--blue); animation: blink .8s step-end infinite; }
+.chat-input-wrap { padding: 12px 16px; border-top: 1px solid var(--line); }
+.chat-input-area { display: flex; gap: 8px; }
+#preChatInput { flex: 1; width: 0; font-size: 13px; background: #fafbfd; }
+.input-tip { color: var(--muted); font-size: 11px; margin-top: 7px; }
+.setup-column { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.script-section, .mic-test-section { padding: 14px 16px; }
+.script-section { flex: 1; display: flex; flex-direction: column; }
+#scriptInput { width: 100%; flex: 1; min-height: 110px; height: 110px; max-height: 420px; margin-top: 10px; font-size: 13px; background: #fafbfd; }
+.row { display: flex; align-items: center; gap: 10px; margin-top: 12px; }
+.row label { font-size: 12px; color: var(--muted); }
+.row select { padding: 5px 9px; font-size: 12px; }
+.optional-tag { font-size: 11px; color: var(--muted); background: #f1f5f9; padding: 2px 7px; border-radius: 5px; }
+.mic-settings-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 12px 0 10px; }
+.mic-settings-row > label { color: var(--muted); font-size: 12px; }
+.segmented { display: inline-flex; padding: 3px; background: #f1f5f9; border-radius: 8px; position: relative; }
+.segmented input { position: absolute; opacity: 0; width: 1px; height: 1px; padding: 0; }
+.segmented label { cursor: pointer; padding: 4px 12px; font-size: 12px; color: #64748b; border-radius: 6px; }
+.segmented input:checked + label { color: var(--blue); background: white; box-shadow: 0 1px 4px #162b4b12; }
+.segmented input:focus-visible + label { outline: 3px solid #93b4ff; outline-offset: 1px; }
+.mic-settings-note { width: 100%; color: var(--muted); font-size: 11px; }
+.mic-test-status { font-size: 12px; color: var(--muted); overflow-wrap: anywhere; }
+.mic-test-transcript { margin: 8px 0 10px; padding: 8px 10px; background: #fafbfd; border: 1px dashed #dbe3ef; border-radius: 8px; font-size: 12px; min-height: 36px; max-height: 110px; overflow-y: auto; overflow-wrap: anywhere; }
+.mic-test-transcript:empty::before { content: '识别到的语音会显示在这里'; color: #718096; }
+.mic-test-transcript.interim { color: var(--muted); }
+.mic-test-actions { display: flex; gap: 8px; }
+.mic-test-btn { min-height: 32px; padding: 5px 12px; font-size: 12px; }
+.mic-test-btn.primary { background: #eff5ff; color: #1d4ed8; border-color: #dce7fb; }
+.mic-test-btn.primary:hover:not(:disabled) { background: #e0eaff; }
+.mic-test-btn.danger { background: #fff1f0; color: #b42318; border-color: #ffdad5; }
+.action-bar { flex-shrink: 0; background: white; border-top: 1px solid var(--line); }
+.action-inner { max-width: 1440px; margin: 0 auto; padding: 14px 28px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.action-label { font-size: 13px; font-weight: 600; }
+#startHint { color: var(--muted); font-size: 12px; margin-top: 3px; }
+#startBtn { min-height: 42px; padding: 10px 23px; }
+#startBtn:disabled { background: #e5eaf2; color: #66768d; opacity: 1; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes blink { 50% { opacity: 0; } }
+.markdown-doc {
+  display: block;
+}
+.markdown-doc > :first-child { margin-top: 0; }
+.markdown-doc > :last-child { margin-bottom: 0; }
+.markdown-doc :where(p, ul, ol, blockquote, pre, table, h1, h2, h3, h4, hr) {
+  margin: 0.45em 0;
+}
+.markdown-doc p {
+  white-space: normal;
+}
+.markdown-doc ul, .markdown-doc ol {
+  padding-left: 1.5em;
+}
+.markdown-doc li {
+  margin: 0.18em 0;
+}
+.markdown-doc pre {
+  background: rgba(15,23,42,0.08); border-radius: 6px; padding: 10px 12px;
+  overflow-x: auto;
+}
+.markdown-doc code {
+  font-family: 'Consolas','Courier New',monospace; font-size: 0.9em;
+}
+.markdown-doc :not(pre) > code {
+  background: rgba(15,23,42,0.08); padding: 1px 5px; border-radius: 4px;
+}
+.markdown-doc pre code { background: none; padding: 0; }
+.markdown-doc blockquote {
+  border-left: 3px solid rgba(25,118,210,0.25); padding-left: 10px;
+  color: inherit; opacity: 0.88;
+}
+.markdown-doc table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.45em 0;
+  font-size: 0.92em;
+}
+.markdown-doc th, .markdown-doc td {
+  border: 1px solid rgba(15,23,42,0.12); padding: 6px 8px; text-align: left;
+}
+.markdown-doc th { background: rgba(255,255,255,0.35); }
+.markdown-doc a { color: inherit; text-decoration: underline; }
+.markdown-doc hr {
+  border: 0;
+  border-top: 1px solid rgba(15,23,42,0.12);
+}
+.markdown-doc h1, .markdown-doc h2, .markdown-doc h3, .markdown-doc h4 {
+  line-height: 1.35;
+  font-weight: 700;
+}
+.markdown-doc h1 { font-size: 1.2em; }
+.markdown-doc h2 { font-size: 1.1em; }
+.markdown-doc h3 { font-size: 1.04em; }
+
+.markdown-doc { min-width: 0; }
+.markdown-doc pre { max-width: 100%; }
+.markdown-doc table { display: block; max-width: 100%; overflow-x: auto; }
+.markdown-doc h1 { font-size: 18px; }
+.markdown-doc h2 { font-size: 16px; }
+@media (max-width: 959px) {
+  .workspace { grid-template-columns: minmax(0, 1fr); }
+  .chat-section { height: 420px; }
+  .license-main { flex-wrap: wrap; gap: 12px; }
+  .license-top { flex-basis: 100%; justify-content: space-between; }
+  .license-redeem-row { width: 100%; }
+  .admin-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .admin-grid > button { justify-self: start; }
+}
+@media (max-width: 680px) {
+  .container { padding: 18px 16px; }
+  .header-tag { display: none; }
+  h1 { font-size: 19px; }
+  .action-inner { padding: 12px 16px; }
+  .action-label { display: none; }
+  #startHint { margin: 0; }
+  #startBtn { padding: 10px 16px; }
+}
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+</style>
+</head>
+<body>
+
+<div class="page-scroll" id="pageScroll">
+<main class="container">
+  <header class="page-header">
+    <div class="brand-mark"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="5" width="16" height="14" rx="4"/><path d="M8 10h8M8 14h5"/></svg></div>
+    <div><h1>面试准备工作台</h1><p>梳理思路，准备话术，从容开启下一场面试。</p></div>
+    <span class="header-tag">AI 辅助提词器</span>
+  </header>
+  <section class="license-section" aria-labelledby="licenseTitle">
+    <div class="license-main">
+      <div class="license-top">
+        <div><h2 class="license-title" id="licenseTitle">面试权益</h2><div class="license-status" id="licenseStatusText" role="status">正在读取权益状态…</div></div>
+        <div class="license-countdown inactive" id="licenseCountdown" aria-label="剩余权益时间">--:--</div>
+      </div>
+      <div class="license-redeem-row">
+        <label for="activationCodeInput" class="sr-only">激活码</label>
+        <input id="activationCodeInput" type="text" placeholder="输入激活码，兑换面试时长" autocomplete="off" />
+        <button class="license-btn" id="redeemCodeBtn">兑换</button>
+      </div>
+    </div>
+    <div class="license-message" id="licenseMessage" role="status"></div>
+    <details class="admin-panel">
+      <summary>后台激活码管理</summary>
+      <div class="admin-grid">
+        <div class="admin-field">
+          <label for="adminSecret">后台密钥</label>
+          <input id="adminSecret" type="password" autocomplete="off" placeholder="ACTIVATION_ADMIN_SECRET" />
+        </div>
+        <div class="admin-field">
+          <label for="adminProductSku">商品</label>
+          <select id="adminProductSku"></select>
+        </div>
+        <div class="admin-field">
+          <label for="adminQuantity">数量</label>
+          <input id="adminQuantity" type="number" min="1" max="500" value="10" />
+        </div>
+        <div class="admin-field">
+          <label for="adminNote">批次备注</label>
+          <input id="adminNote" type="text" maxlength="120" placeholder="渠道、订单或用途" />
+        </div>
+        <button class="license-btn secondary" id="generateCodesBtn">生成</button>
+      </div>
+      <textarea id="generatedCodes" aria-label="生成的激活码" readonly placeholder="新生成的激活码会显示在这里，仅本次生成后可见，请复制用于分发。"></textarea>
+      <button class="tiny-link-btn" id="refreshCodesBtn" type="button">刷新激活码状态</button>
+      <div class="code-list">
+        <table>
+          <thead>
+            <tr>
+              <th>商品</th>
+              <th>价格</th>
+              <th>状态</th>
+              <th>创建时间</th>
+              <th>备注</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody id="activationCodeList">
+            <tr><td colspan="6">正在读取...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </details>
+  </section>
+  <div class="workspace">
+    <section class="chat-section" aria-labelledby="chatTitle">
+      <div class="chat-header">
+        <div class="card-header"><div class="card-heading"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11.5a8.5 8.5 0 0 1-8.5 8.5H4l-2 2v-10a9.5 9.5 0 1 1 19 0Z"/><path d="M7 10h9M7 14h6"/></svg><h2 id="chatTitle">AI 面试准备</h2></div><span class="chat-state" id="preChatStatus" role="status">准备就绪</span></div>
+        <p class="card-description">对话将自动带入面试，帮助 AI 更好地理解你的背景。</p>
+      </div>
+      <div class="chat-messages" id="preChatMessages" role="region" aria-label="面试准备对话" tabindex="0">
+        <div class="chat-bubble ai">你好！我是你的面试助手。<br>告诉我你的目标岗位和项目经历，我们一起梳理面试思路、打磨回答。<br><br>也可以从「帮我准备一段自我介绍」开始。</div>
+      </div>
+      <div class="chat-input-wrap"><div class="chat-input-area">
+        <label for="preChatInput" class="sr-only">发送给面试助手的消息</label>
+        <input id="preChatInput" type="text" placeholder="聊聊你的目标岗位或面试问题…" aria-describedby="chatInputTip" />
+        <button id="preChatSend">发送 <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></button>
+      </div><p class="input-tip" id="chatInputTip">Enter 发送 · 先聊聊，再开始面试</p></div>
+    </section>
+    <div class="setup-column">
+      <section class="script-section" aria-labelledby="scriptTitle">
+        <div class="card-header"><div class="card-heading"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h4"/></svg><h2 id="scriptTitle">提词稿</h2></div><span class="optional-tag">选填</span></div>
+        <p class="card-description" id="scriptHelp">按 。？，； 自动分句，面试时用 ← → 切换。</p>
+        <label for="scriptInput" class="sr-only">面试提词稿</label>
+        <textarea id="scriptInput" aria-describedby="scriptHelp" placeholder="粘贴自我介绍、项目经历或回答要点…"></textarea>
+        <div class="row"><label for="lineMode">悬浮提词显示</label><select id="lineMode"><option value="1">1 行</option><option value="2" selected>2 行</option></select></div>
+      </section>
+      <section class="mic-test-section" aria-labelledby="micTitle">
+        <div class="card-heading"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10v2a7 7 0 0 0 14 0v-2M12 19v3M8 22h8"/></svg><h2 id="micTitle">麦克风测试</h2></div>
+        <div class="mic-settings-row">
+          <label id="denoiseLabel">降噪强度</label>
+          <div class="segmented" role="radiogroup" aria-labelledby="denoiseLabel" aria-describedby="denoiseModeHint">
+            <input type="radio" name="denoiseMode" id="denoiseOff" value="off" /><label for="denoiseOff">关闭</label>
+            <input type="radio" name="denoiseMode" id="denoiseStandard" value="standard" checked /><label for="denoiseStandard">标准</label>
+            <input type="radio" name="denoiseMode" id="denoiseStrong" value="strong" /><label for="denoiseStrong">强</label>
+          </div>
+          <span class="mic-settings-note" id="denoiseModeHint">标准：均衡压噪与人声保真</span>
+        </div>
+        <div class="mic-test-status" id="micTestStatus" role="status">点击「测试麦克风」，检查录音与转写</div>
+        <div class="mic-test-transcript" id="micTestTranscript" role="region" aria-label="麦克风转写结果" tabindex="0"></div>
+        <div class="mic-test-actions"><button class="mic-test-btn primary" id="micTestBtn">测试麦克风</button><button class="mic-test-btn danger" id="micStopBtn" style="display:none">停止测试</button></div>
+      </section>
+    </div>
+  </div>
+</main>
+</div>
+<footer class="action-bar"><div class="action-inner">
+  <div><div class="action-label">准备好了，就开始吧</div><p id="startHint" role="status">正在读取权益状态…</p></div>
+  <button id="startBtn" disabled aria-describedby="startHint">开始面试 <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></button>
+</div></footer>
+
+<script>
+let preChatHistory = [];
+let preAiBubble = null;
+let preAiFullText = '';
+let preAiActive = false;
+
+const preMsgEl = document.getElementById('preChatMessages');
+const preInput = document.getElementById('preChatInput');
+const preSend = document.getElementById('preChatSend');
+const licenseStatusText = document.getElementById('licenseStatusText');
+const licenseCountdown = document.getElementById('licenseCountdown');
+const licenseMessage = document.getElementById('licenseMessage');
+const activationCodeInput = document.getElementById('activationCodeInput');
+const redeemCodeBtn = document.getElementById('redeemCodeBtn');
+const adminSecret = document.getElementById('adminSecret');
+const adminProductSku = document.getElementById('adminProductSku');
+const adminQuantity = document.getElementById('adminQuantity');
+const adminNote = document.getElementById('adminNote');
+const generateCodesBtn = document.getElementById('generateCodesBtn');
+const generatedCodes = document.getElementById('generatedCodes');
+const refreshCodesBtn = document.getElementById('refreshCodesBtn');
+const activationCodeList = document.getElementById('activationCodeList');
+const startBtn = document.getElementById('startBtn');
+const CLIENT_LICENSE_ACTIVE_UNTIL_KEY = 'answerplayer.clientActiveUntilMs';
+const SERVER_LICENSE_CHECK_INTERVAL_MS = 60 * 1000;
+
+let licenseStatus = null;
+let licenseProducts = [];
+let licenseCheckInFlight = false;
+
+function scrollPre() { requestAnimationFrame(() => { preMsgEl.scrollTop = preMsgEl.scrollHeight; }); }
+
+function formatPrice(priceCents) {
+  if (!priceCents) return '免费';
+  return `${Math.round(priceCents / 100)}元`;
+}
+
+function formatDateTime(ms) {
+  if (!ms) return '-';
+  return new Date(ms).toLocaleString('zh-CN', { hour12: false });
+}
+
+function formatRemaining(totalSeconds) {
+  const seconds = Math.max(0, Number(totalSeconds) || 0);
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = seconds % 60;
+  if (h > 0) {
+    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  }
+  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+}
+
+function setLicenseMessage(text, type = '') {
+  licenseMessage.textContent = text || '';
+  licenseMessage.className = `license-message ${type}`.trim();
+}
+
+function readClientActiveUntilMs() {
+  return Number(localStorage.getItem(CLIENT_LICENSE_ACTIVE_UNTIL_KEY)) || 0;
+}
+
+function saveClientActiveUntilMs(activeUntilMs) {
+  const normalized = Math.max(0, Number(activeUntilMs) || 0);
+  localStorage.setItem(CLIENT_LICENSE_ACTIVE_UNTIL_KEY, String(normalized));
+}
+
+function buildClientLicenseStatus(products = licenseProducts) {
+  const nowMs = Date.now();
+  const activeUntilMs = readClientActiveUntilMs();
+  const remainingSeconds = Math.max(0, Math.floor((activeUntilMs - nowMs) / 1000));
+  return {
+    serverNowMs: nowMs,
+    activeUntilMs,
+    remainingSeconds,
+    isActive: remainingSeconds > 0,
+    products
+  };
+}
+
+function getRenderedRemainingSeconds() {
+  if (!licenseStatus) return 0;
+  return Math.max(0, Math.floor((licenseStatus.activeUntilMs - Date.now()) / 1000));
+}
+
+function renderProductOptions(products) {
+  if (!Array.isArray(products) || !products.length) return;
+  licenseProducts = products;
+  const selected = adminProductSku.value;
+  adminProductSku.innerHTML = products.map((product) => (
+    `<option value="${product.sku}">${product.name} / ${formatPrice(product.priceCents)}</option>`
+  )).join('');
+  if (selected && products.some((product) => product.sku === selected)) {
+    adminProductSku.value = selected;
+  }
+}
+
+function updateStartButton(active) {
+  if (!startBtn) return;
+  startBtn.disabled = !active;
+  startBtn.title = active ? '' : '请先兑换激活码获得有效权益';
+  document.getElementById('startHint').textContent = active ? '权益有效 · 提词稿可选，随时开始面试' : '请先兑换激活码，再开始面试';
+}
+
+function renderLicenseStatus(status) {
+  if (!status) return;
+  if (Number(status.activeUntilMs) > readClientActiveUntilMs()) {
+    saveClientActiveUntilMs(status.activeUntilMs);
+  }
+  renderProductOptions(status.products);
+  licenseStatus = buildClientLicenseStatus(status.products || licenseProducts);
+  tickLicenseCountdown();
+}
+
+function tickLicenseCountdown() {
+  const remainingSeconds = getRenderedRemainingSeconds();
+  const active = remainingSeconds > 0;
+  licenseCountdown.textContent = active ? formatRemaining(remainingSeconds) : '--:--';
+  licenseCountdown.classList.toggle('inactive', !active);
+  updateStartButton(active);
+
+  if (active && licenseStatus) {
+    licenseStatusText.textContent = `权益有效 · 到期 ${formatDateTime(licenseStatus.activeUntilMs)}`;
+  } else {
+    licenseStatusText.textContent = readClientActiveUntilMs() > 0 ? '权益已到期，请兑换激活码续时。' : '暂无有效权益，兑换激活码即可开启面试。';
+  }
+}
+
+function renderActivationCodes(codes) {
+  if (!Array.isArray(codes) || !codes.length) {
+    activationCodeList.innerHTML = '<tr><td colspan="6">暂无激活码，请先批量生成。</td></tr>';
+    return;
+  }
+
+  const productBySku = new Map(licenseProducts.map((product) => [product.sku, product]));
+  activationCodeList.innerHTML = codes.map((code) => {
+    const product = productBySku.get(code.productSku);
+    const name = product ? product.name : `${code.minutes}分钟`;
+    const statusText = code.status === 'redeemed' ? '已兑换' : (code.status === 'disabled' ? '已停用' : '未使用');
+    const action = code.status === 'redeemed'
+      ? '-'
+      : `<button class="tiny-link-btn" data-code-id="${code.id}" data-disabled="${code.status !== 'disabled'}">${code.status === 'disabled' ? '启用' : '停用'}</button>`;
+    return `<tr>
+      <td>${name}</td>
+      <td>${formatPrice(code.priceCents)}</td>
+      <td>${statusText}</td>
+      <td>${formatDateTime(code.createdAtMs)}</td>
+      <td>${escapeMarkdownHtml(code.note || '')}</td>
+      <td>${action}</td>
+    </tr>`;
+  }).join('');
+}
+
+async function refreshLicense() {
+  renderLicenseStatus(buildClientLicenseStatus());
+  activationCodeList.innerHTML = '<tr><td colspan="6">输入后台密钥后，可读取最近生成的激活码状态。</td></tr>';
+  await checkLicenseTime({ showUnavailable: true });
+}
+
+function applyLicenseTimeCheck(result) {
+  if (!result) return;
+  renderProductOptions(result.products);
+
+  if (result.shouldCorrect) {
+    saveClientActiveUntilMs(result.correctionActiveUntilMs);
+    renderLicenseStatus(buildClientLicenseStatus(result.products || licenseProducts));
+
+    if (result.reason === 'client-ahead') {
+      setLicenseMessage('服务端检测到本地权益时间异常，已同步服务端到期时间。', 'error');
+      if (result.serverRemainingSeconds <= 0 || result.correctionActiveUntilMs <= result.serverNowMs) {
+        window.electronAPI.closePrompter();
+      }
+      return;
+    }
+
+    if (result.reason === 'server-longer') {
+      setLicenseMessage('服务端权益时间更晚，已同步到客户端。', 'success');
+      return;
+    }
+  }
+
+  renderLicenseStatus(buildClientLicenseStatus(result.products || licenseProducts));
+}
+
+async function checkLicenseTime({ showUnavailable = false } = {}) {
+  if (licenseCheckInFlight) return null;
+  licenseCheckInFlight = true;
+  try {
+    const result = await window.electronAPI.checkLicenseTime({
+      clientActiveUntilMs: readClientActiveUntilMs()
+    });
+    applyLicenseTimeCheck(result);
+    return result;
+  } catch (err) {
+    if (showUnavailable) {
+      setLicenseMessage('服务端暂不可用，当前按客户端本地到期时间判断。', 'error');
+    }
+    return null;
+  } finally {
+    licenseCheckInFlight = false;
+  }
+}
+
+async function loadActivationCodesForAdmin() {
+  if (!adminSecret.value.trim()) {
+    activationCodeList.innerHTML = '<tr><td colspan="6">输入后台密钥后，可读取最近生成的激活码状态。</td></tr>';
+    return;
+  }
+
+  try {
+    const list = await window.electronAPI.listActivationCodes({
+      limit: 80,
+      adminSecret: adminSecret.value
+    });
+    renderLicenseStatus(list.status);
+    renderActivationCodes(list.codes);
+    setLicenseMessage('后台激活码状态已刷新。', 'success');
+  } catch (err) {
+    setLicenseMessage(err.message || '读取后台激活码失败', 'error');
+  }
+}
+
+async function redeemActivationCode() {
+  if (redeemCodeBtn.disabled) return;
+  const code = activationCodeInput.value.trim();
+  if (!code) {
+    setLicenseMessage('请输入激活码。', 'error');
+    return;
+  }
+
+  redeemCodeBtn.disabled = true;
+  redeemCodeBtn.textContent = '兑换中…';
+  setLicenseMessage('正在兑换激活码…');
+  try {
+    const result = await window.electronAPI.redeemActivationCode(code);
+    activationCodeInput.value = '';
+    const clientBaseMs = Math.max(Date.now(), readClientActiveUntilMs());
+    saveClientActiveUntilMs(clientBaseMs + (Number(result.redeemed.minutes) || 0) * 60 * 1000);
+    renderLicenseStatus(buildClientLicenseStatus(result.status?.products || licenseProducts));
+    setLicenseMessage(`兑换成功：已增加 ${result.redeemed.minutes} 分钟。`, 'success');
+  } catch (err) {
+    setLicenseMessage(err.message || '兑换失败', 'error');
+  } finally {
+    redeemCodeBtn.disabled = false;
+    redeemCodeBtn.textContent = '兑换';
+  }
+}
+
+async function generateActivationCodeBatch() {
+  generateCodesBtn.disabled = true;
+  try {
+    const result = await window.electronAPI.generateActivationCodes({
+      productSku: adminProductSku.value,
+      quantity: adminQuantity.value,
+      note: adminNote.value,
+      adminSecret: adminSecret.value
+    });
+    generatedCodes.value = result.generated.map((item) => item.code).join('\n');
+    renderActivationCodes(result.codes);
+    setLicenseMessage(`已生成 ${result.generated.length} 个激活码。`, 'success');
+  } catch (err) {
+    setLicenseMessage(err.message || '生成失败', 'error');
+  } finally {
+    generateCodesBtn.disabled = false;
+  }
+}
+
+async function toggleActivationCodeDisabled(button) {
+  button.disabled = true;
+  try {
+    const result = await window.electronAPI.setActivationCodeDisabled({
+      codeId: button.dataset.codeId,
+      disabled: button.dataset.disabled === 'true',
+      adminSecret: adminSecret.value
+    });
+    renderLicenseStatus(result.status);
+    renderActivationCodes(result.codes);
+  } catch (err) {
+    setLicenseMessage(err.message || '操作失败', 'error');
+  }
+}
+
+function escapeMarkdownHtml(text) {
+  return String(text || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function renderInlineMarkdown(text) {
+  let html = escapeMarkdownHtml(text);
+  html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+  html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  html = html.replace(/__([^_]+)__/g, '<strong>$1</strong>');
+  html = html.replace(/(^|[^*])\*([^*\n]+)\*(?!\*)/g, '$1<em>$2</em>');
+  html = html.replace(/(^|[^_])_([^_\n]+)_(?!_)/g, '$1<em>$2</em>');
+  return html;
+}
+
+function renderMarkdownBlocks(markdown) {
+  const lines = String(markdown || '').replace(/\r\n?/g, '\n').split('\n');
+  const blocks = [];
+  let i = 0;
+
+  while (i < lines.length) {
+    const line = lines[i];
+    const trimmed = line.trim();
+
+    if (!trimmed) {
+      i += 1;
+      continue;
+    }
+
+    const fence = trimmed.match(/^```([\w-]*)/);
+    if (fence) {
+      const codeLines = [];
+      i += 1;
+      while (i < lines.length && !lines[i].trim().startsWith('```')) {
+        codeLines.push(lines[i]);
+        i += 1;
+      }
+      if (i < lines.length) i += 1;
+      const lang = fence[1] ? ` class="language-${escapeMarkdownHtml(fence[1])}"` : '';
+      blocks.push(`<pre><code${lang}>${escapeMarkdownHtml(codeLines.join('\n'))}</code></pre>`);
+      continue;
+    }
+
+    const heading = trimmed.match(/^(#{1,4})\s+(.+)$/);
+    if (heading) {
+      const level = heading[1].length;
+      blocks.push(`<h${level}>${renderInlineMarkdown(heading[2])}</h${level}>`);
+      i += 1;
+      continue;
+    }
+
+    if (/^>\s?/.test(trimmed)) {
+      const quoteLines = [];
+      while (i < lines.length && /^>\s?/.test(lines[i].trim())) {
+        quoteLines.push(lines[i].trim().replace(/^>\s?/, ''));
+        i += 1;
+      }
+      blocks.push(`<blockquote>${quoteLines.map(renderInlineMarkdown).join('<br>')}</blockquote>`);
+      continue;
+    }
+
+    if (/^[-*+]\s+/.test(trimmed)) {
+      const items = [];
+      while (i < lines.length && /^[-*+]\s+/.test(lines[i].trim())) {
+        items.push(lines[i].trim().replace(/^[-*+]\s+/, ''));
+        i += 1;
+      }
+      blocks.push(`<ul>${items.map((item) => `<li>${renderInlineMarkdown(item)}</li>`).join('')}</ul>`);
+      continue;
+    }
+
+    if (/^\d+\.\s+/.test(trimmed)) {
+      const items = [];
+      while (i < lines.length && /^\d+\.\s+/.test(lines[i].trim())) {
+        items.push(lines[i].trim().replace(/^\d+\.\s+/, ''));
+        i += 1;
+      }
+      blocks.push(`<ol>${items.map((item) => `<li>${renderInlineMarkdown(item)}</li>`).join('')}</ol>`);
+      continue;
+    }
+
+    if (/^---+$/.test(trimmed)) {
+      blocks.push('<hr>');
+      i += 1;
+      continue;
+    }
+
+    const paragraph = [trimmed];
+    i += 1;
+    while (
+      i < lines.length &&
+      lines[i].trim() &&
+      !/^```/.test(lines[i].trim()) &&
+      !/^(#{1,4})\s+/.test(lines[i].trim()) &&
+      !/^>\s?/.test(lines[i].trim()) &&
+      !/^[-*+]\s+/.test(lines[i].trim()) &&
+      !/^\d+\.\s+/.test(lines[i].trim()) &&
+      !/^---+$/.test(lines[i].trim())
+    ) {
+      paragraph.push(lines[i].trim());
+      i += 1;
+    }
+    blocks.push(`<p>${renderInlineMarkdown(paragraph.join(' '))}</p>`);
+  }
+
+  return blocks.join('');
+}
+
+function renderAssistantMarkdown(text) {
+  return `<article class="markdown-doc">${renderMarkdownBlocks(text)}</article>`;
+}
+
+function addPreBubble(text, role) {
+  const el = document.createElement('div');
+  el.className = `chat-bubble ${role}`;
+  if (role === 'ai') {
+    el.innerHTML = renderAssistantMarkdown(text);
+  } else {
+    el.textContent = text;
+  }
+  preMsgEl.appendChild(el);
+  scrollPre();
+  return el;
+}
+
+function startPreAi() {
+  preAiFullText = '';
+  preAiBubble = addPreBubble('', 'ai');
+  preAiBubble.classList.add('streaming');
+  preAiActive = true;
+  preSend.disabled = true;
+  document.getElementById('preChatStatus').textContent = '正在回复';
+  document.getElementById('preChatStatus').classList.add('busy');
+}
+
+function appendPreAi(chunk) {
+  if (!preAiBubble) return;
+  preAiFullText += chunk;
+  preAiBubble.innerHTML = renderAssistantMarkdown(preAiFullText);
+  scrollPre();
+}
+
+function endPreAi() {
+  preAiActive = false;
+  preSend.disabled = false;
+  document.getElementById('preChatStatus').textContent = '准备就绪';
+  document.getElementById('preChatStatus').classList.remove('busy');
+  if (preAiBubble) {
+    preAiBubble.classList.remove('streaming');
+    preAiBubble.innerHTML = renderAssistantMarkdown(preAiFullText);
+    preChatHistory.push({ role: 'assistant', content: preAiFullText });
+    preAiBubble = null;
+  }
+  scrollPre();
+}
+
+function sendPreChat() {
+  const text = preInput.value.trim();
+  if (!text || preAiActive) return;
+  preInput.value = '';
+  addPreBubble(text, 'user');
+  preChatHistory.push({ role: 'user', content: text });
+  const fullHistory = [
+    { role: 'system', content: '你是一个面试辅助AI助手，帮助用户准备面试。请根据用户的提问，提供有用的建议和指导。回答要简洁实用。' },
+    ...preChatHistory
+  ];
+  startPreAi();
+  window.electronAPI.preChat(fullHistory);
+}
+
+preSend.addEventListener('click', sendPreChat);
+preInput.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.isComposing && e.keyCode !== 229) sendPreChat(); });
+redeemCodeBtn.addEventListener('click', redeemActivationCode);
+activationCodeInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') redeemActivationCode(); });
+adminSecret.addEventListener('change', loadActivationCodesForAdmin);
+adminSecret.addEventListener('keydown', (e) => { if (e.key === 'Enter') loadActivationCodesForAdmin(); });
+generateCodesBtn.addEventListener('click', generateActivationCodeBatch);
+refreshCodesBtn.addEventListener('click', loadActivationCodesForAdmin);
+activationCodeList.addEventListener('click', (e) => {
+  const button = e.target.closest('button[data-code-id]');
+  if (!button) return;
+  toggleActivationCodeDisabled(button);
+});
+window.electronAPI.onLicenseStatus(renderLicenseStatus);
+window.electronAPI.onLicenseError((message) => setLicenseMessage(message, 'error'));
+setInterval(tickLicenseCountdown, 1000);
+setInterval(() => {
+  checkLicenseTime({ showUnavailable: true });
+}, SERVER_LICENSE_CHECK_INTERVAL_MS);
+
+window.electronAPI.onPreChunk((chunk) => {
+  if (!preAiActive && !preAiBubble) startPreAi();
+  appendPreAi(chunk);
+});
+window.electronAPI.onPreEnd(() => { endPreAi(); });
+
+// ---- 麦克风测试 ----
+let testMicStream = null;
+let testAudioCtx = null, testWorkletNode = null;
+let testProcessingNodes = [];
+let testActive = false;
+let lastMicStatus = 'idle';
+let denoiseMode = 'standard';
+
+const denoiseModeHints = {
+  off: '关闭：尽量保留原始声音',
+  standard: '标准：均衡压噪与人声保真',
+  strong: '强：更积极压制底噪和串音'
+};
+
+function getDenoiseMode() {
+  const selected = document.querySelector('input[name="denoiseMode"]:checked');
+  return selected ? selected.value : 'standard';
+}
+
+function updateDenoiseModeHint() {
+  denoiseMode = getDenoiseMode();
+  document.getElementById('denoiseModeHint').textContent = denoiseModeHints[denoiseMode] || denoiseModeHints.standard;
+}
+
+function getSpeechProcessingProfile(mode) {
+  if (mode === 'off') {
+    return {
+      constraints: {
+        noiseSuppression: false,
+        echoCancellation: false,
+        autoGainControl: false
+      },
+      highpass: 40,
+      lowpass: 7900,
+      threshold: 0,
+      knee: 0,
+      ratio: 1,
+      gain: 1
+    };
+  }
+
+  if (mode === 'strong') {
+    return {
+      constraints: {
+        noiseSuppression: true,
+        echoCancellation: true,
+        autoGainControl: true
+      },
+      highpass: 140,
+      lowpass: 6800,
+      threshold: -34,
+      knee: 20,
+      ratio: 4,
+      gain: 0.96
+    };
+  }
+
+  return {
+    constraints: {
+      noiseSuppression: true,
+      echoCancellation: true,
+      autoGainControl: true
+    },
+    highpass: 100,
+    lowpass: 7800,
+    threshold: -30,
+    knee: 18,
+    ratio: 3,
+    gain: 1
+  };
+}
+
+function createSpeechProcessingChain(context, sourceNode, mode) {
+  const profile = getSpeechProcessingProfile(mode);
+  const highpass = context.createBiquadFilter();
+  highpass.type = 'highpass';
+  highpass.frequency.value = profile.highpass;
+  highpass.Q.value = 0.7;
+
+  const lowpass = context.createBiquadFilter();
+  lowpass.type = 'lowpass';
+  lowpass.frequency.value = profile.lowpass;
+  lowpass.Q.value = 0.7;
+
+  const compressor = context.createDynamicsCompressor();
+  compressor.threshold.value = profile.threshold;
+  compressor.knee.value = profile.knee;
+  compressor.ratio.value = profile.ratio;
+  compressor.attack.value = 0.003;
+  compressor.release.value = 0.2;
+
+  const gain = context.createGain();
+  gain.gain.value = profile.gain;
+
+  sourceNode.connect(highpass);
+  highpass.connect(lowpass);
+  lowpass.connect(compressor);
+  compressor.connect(gain);
+
+  testProcessingNodes.push(highpass, lowpass, compressor, gain);
+  return gain;
+}
+
+async function startMicTest() {
+  const micButton = document.getElementById('micTestBtn');
+  if (micButton.disabled || testActive) return;
+  micButton.disabled = true;
+  document.getElementById('micTestStatus').textContent = '正在启动麦克风，请允许录音权限…';
+  try {
+    updateDenoiseModeHint();
+    const profile = getSpeechProcessingProfile(denoiseMode);
+    const micStream = await navigator.mediaDevices.getUserMedia({
+      audio: profile.constraints
+    });
+    testMicStream = micStream;
+
+    const audioCtx = new AudioContext();
+    testAudioCtx = audioCtx;
+
+    await audioCtx.audioWorklet.addModule(new URL('audio-worklet.js', location.href).href);
+    testWorkletNode = new AudioWorkletNode(audioCtx, 'pcm-resampler');
+    const src = audioCtx.createMediaStreamSource(micStream);
+    const processed = createSpeechProcessingChain(audioCtx, src, denoiseMode);
+    processed.connect(testWorkletNode);
+    testWorkletNode.port.onmessage = (e) => window.electronAPI.sendPcmData(e.data);
+
+    testActive = true;
+    lastMicStatus = 'connecting';
+    window.electronAPI.startTestMic();
+    document.getElementById('micTestStatus').textContent = '🔄 连接讯飞 ASR...';
+    document.getElementById('micTestBtn').style.display = 'none';
+    document.getElementById('micStopBtn').style.display = '';
+  } catch (err) {
+    stopMicTest();
+    document.getElementById('micTestStatus').textContent = '麦克风启动失败：' + err.message;
+  } finally {
+    micButton.disabled = false;
+  }
+}
+
+function stopMicTest() {
+  testActive = false;
+  lastMicStatus = 'idle';
+  window.electronAPI.stopTestMic();
+  if (testWorkletNode) { testWorkletNode.disconnect(); testWorkletNode = null; }
+  for (const node of testProcessingNodes) {
+    try { node.disconnect(); } catch (_) {}
+  }
+  testProcessingNodes = [];
+  if (testAudioCtx) { testAudioCtx.close(); testAudioCtx = null; }
+  if (testMicStream) { testMicStream.getTracks().forEach(t => t.stop()); testMicStream = null; }
+  document.getElementById('micTestBtn').style.display = '';
+  document.getElementById('micStopBtn').style.display = 'none';
+  document.getElementById('micTestTranscript').textContent = '';
+  document.getElementById('micTestTranscript').className = 'mic-test-transcript';
+  document.getElementById('micTestStatus').textContent = '点击「测试麦克风」开始录音转写';
+}
+
+document.getElementById('micTestBtn').addEventListener('click', startMicTest);
+document.getElementById('micStopBtn').addEventListener('click', stopMicTest);
+for (const input of document.querySelectorAll('input[name="denoiseMode"]')) {
+  input.addEventListener('change', async () => {
+    updateDenoiseModeHint();
+    if (!testActive) return;
+    stopMicTest();
+    await startMicTest();
+  });
+}
+updateDenoiseModeHint();
+
+window.electronAPI.onXunfeiStatus((payload) => {
+  if (!testActive) return;
+  const status = typeof payload === 'string' ? payload : payload?.state;
+  const detail = typeof payload === 'string' ? '' : (payload?.detail || '');
+  lastMicStatus = status || lastMicStatus;
+  if (status === 'connected') {
+    document.getElementById('micTestStatus').textContent = '🔄 讯飞 ASR 已连接，等待语音...';
+  } else if (status === 'disconnected') {
+    document.getElementById('micTestStatus').textContent = detail ? `⚠️ 讯飞 ASR 已断开：${detail}` : '⚠️ 讯飞 ASR 已断开';
+  } else if (status === 'error') {
+    document.getElementById('micTestStatus').textContent = detail ? `⚠️ 讯飞 ASR 连接错误：${detail}` : '⚠️ 讯飞 ASR 连接错误';
+  } else if (status === 'idle' && lastMicStatus !== 'error') {
+    document.getElementById('micTestStatus').textContent = '点击「测试麦克风」开始录音转写';
+  }
+});
+
+window.electronAPI.onAsrInterim((result) => {
+  if (!testActive) return;
+  const el = document.getElementById('micTestTranscript');
+  el.textContent = result.role === 'interviewer' ? `[系统] ${result.text}` : result.text;
+  el.className = 'mic-test-transcript interim';
+  document.getElementById('micTestStatus').textContent = '🎤 识别中...';
+});
+
+window.electronAPI.onAsrFinal((result) => {
+  if (!testActive) return;
+  const el = document.getElementById('micTestTranscript');
+  el.textContent = result.role === 'interviewer' ? `[系统] ${result.text}` : result.text;
+  el.className = 'mic-test-transcript';
+  document.getElementById('micTestStatus').textContent = '✅ 已识别';
+});
+
+// 开始面试
+startBtn.addEventListener('click', async () => {
+  const freshStatus = buildClientLicenseStatus();
+  renderLicenseStatus(freshStatus);
+  if (!freshStatus.isActive) {
+    setLicenseMessage('请先兑换激活码，获得有效倒计时权益后再开始。', 'error');
+    return;
+  }
+
+  if (testActive) stopMicTest();
+  const text = document.getElementById('scriptInput').value;
+  const lines = document.getElementById('lineMode').value;
+  const persona = '你是一个面试辅助AI助手，根据面试对话提供实时建议。';
+  const cleaned = text.replace(/\n/g, '').replace(/\r/g, '');
+  const sentences = cleaned.split(/(?<=[。？，；])/).filter(s => s.trim() !== '');
+  window.electronAPI.startPrompter({
+    sentences,
+    lines: parseInt(lines, 10),
+    persona,
+    preChatHistory,
+    scriptText: cleaned,
+    denoiseMode,
+    licenseClientActiveUntilMs: freshStatus.activeUntilMs
+  });
+});
+
+refreshLicense();
+</script>
+</body>
+</html>
